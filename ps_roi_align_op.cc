@@ -181,7 +181,7 @@ struct PSROIAlignFunctor<CPUDevice, T> {
 
     const DeviceBase::CpuWorkerThreads& worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
     // one worker for one position in each ROI
-    const int64_t shard_cost = batch_size * num_rois * num_channals;
+    const int64_t shard_cost = 4 * map_height * map_width / grid_dim_width / grid_dim_height / 4;
     Shard(worker_threads.num_threads, worker_threads.workers,
           pooled_features.size(), shard_cost, pooling_routine);
   }
