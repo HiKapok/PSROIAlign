@@ -137,10 +137,16 @@ void atomic_float_add(volatile float* ptr, const float operand)
 
 //         const T * roi_to_pool = rois.data() + (image_index * num_rois + roi_index) * 4;
 
+//         volatile T * grad_output_start = reinterpret_cast<volatile T*>(grad_output.data() + (image_index * num_channals + position_index * bank_size + channal_pos_remainder) * map_height * map_width);
+//         const T * pooled_features_start = pooled_features_grad.data() + worker_index;
+//         const int32_t * pooled_index_start = pooled_index.data() + worker_index;
+
 //         T roi_ymin = static_cast<T>(0);
 //         T roi_xmin = static_cast<T>(0);
 //         T roi_ymax = static_cast<T>(0);
 //         T roi_xmax = static_cast<T>(0);
+//         if(roi_to_pool[2] < std::numeric_limits<T>::min() || roi_to_pool[3] < std::numeric_limits<T>::min()) continue;
+
 //         // fix ROI
 //         std::tie(roi_ymin, roi_xmin, roi_ymax, roi_xmax) = [roi_to_pool, map_height, map_width](){
 //           T roi_y_center = static_cast<T>(roi_to_pool[0] * map_height);
@@ -170,10 +176,6 @@ void atomic_float_add(volatile float* ptr, const float operand)
 
 //         float step_width_each_bin = pool_bin_width / num_elem_width;
 //         float step_height_each_bin = pool_bin_height / num_elem_height;
-
-//         volatile T * grad_output_start = reinterpret_cast<volatile T*>(grad_output.data() + (image_index * num_channals + position_index * bank_size + channal_pos_remainder) * map_height * map_width);
-//         const T * pooled_features_start = pooled_features_grad.data() + worker_index;
-//         const int32_t * pooled_index_start = pooled_index.data() + worker_index;
 
 //         float pool_width_start = roi_xmin + pool_bin_width * col_index;
 //         float pool_height_start = roi_ymin + pool_bin_height * row_index;
@@ -215,11 +217,11 @@ void atomic_float_add(volatile float* ptr, const float operand)
 //   }
 // };
 
-// calculate gradients from input side
-// the result of this kernel is same as the above kernel which is calculate gradients from the output side
-// the different is that this kernel don't need synchronous gradients of the same input cell
-// but the drawback of this kernel is that more threads scheduling may be occurred due to the larger input feature map size compared with output feature map
-// you can choose any one to use depends on the relative overhead between the scheduling and atomic sync operation
+// // calculate gradients from input side
+// // the result of this kernel is same as the above kernel which is calculate gradients from the output side
+// // the different is that this kernel don't need synchronous gradients of the same input cell
+// // but the drawback of this kernel is that more threads scheduling may be occurred due to the larger input feature map size compared with output feature map
+// // you can choose any one to use depends on the relative overhead between the scheduling and atomic sync operation
 template <typename T>
 struct PSROIAlignGradFunctor<CPUDevice, T> {
   void operator()(OpKernelContext* context, const CPUDevice& d, typename TTypes<T>::ConstFlat inputs, typename TTypes<T>::ConstFlat rois, const int32_t grid_dim_width, const int32_t grid_dim_height, typename TTypes<T>::ConstFlat pooled_features_grad, typename TTypes<int32_t>::ConstFlat pooled_index, typename TTypes<T>::Flat grad_output, KDimSize dim_info) {
@@ -254,6 +256,7 @@ struct PSROIAlignGradFunctor<CPUDevice, T> {
           T roi_ymax = static_cast<T>(0);
           T roi_xmax = static_cast<T>(0);
           // fix ROI
+          if(roi_to_pool[2] < std::numeric_limits<T>::min() || roi_to_pool[3] < std::numeric_limits<T>::min()) continue;
           std::tie(roi_ymin, roi_xmin, roi_ymax, roi_xmax) = [roi_to_pool, map_height, map_width](){
             T roi_y_center = static_cast<T>(roi_to_pool[0] * map_height);
             T roi_x_center = static_cast<T>(roi_to_pool[1] * map_width);

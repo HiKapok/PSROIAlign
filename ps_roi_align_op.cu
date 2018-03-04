@@ -53,6 +53,14 @@ __global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, 
 
     const T * roi_to_pool = rois + (image_index * num_rois + roi_index) * 4;
 
+    const T * feature_map_to_pool = inputs + (image_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder) * map_height * map_width;
+    T * pooled_features_start = pooled_features + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
+    int32_t * pooled_index_start = pooled_index + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
+
+    if(roi_to_pool[2] < std::numeric_limits<T>::min() || roi_to_pool[3] < std::numeric_limits<T>::min()){
+      *pooled_features_start = static_cast<T>(0);
+      continue;
+    }
     // T roi_ymin = static_cast<T>(0);
     // T roi_xmin = static_cast<T>(0);
     // T roi_ymax = static_cast<T>(0);
@@ -85,10 +93,6 @@ __global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, 
 
     float step_widht_each_bin = pool_bin_width / num_elem_width;
     float step_height_each_bin = pool_bin_height / num_elem_height;
-
-    const T * feature_map_to_pool = inputs + (image_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder) * map_height * map_width;
-    T * pooled_features_start = pooled_features + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
-    int32_t * pooled_index_start = pooled_index + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
 
     float pool_width_start = roi_xmin + pool_bin_width * col_index;
     float pool_height_start = roi_ymin + pool_bin_height * row_index;

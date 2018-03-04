@@ -53,6 +53,7 @@ __global__ void PSROIAlignGradCudaKernel(CudaLaunchConfig config, const T * inpu
 
     const T * roi_to_pool = rois + (image_index * num_rois + roi_index) * 4;
 
+    if(ldg(roi_to_pool + 2) < std::numeric_limits<T>::min() || ldg(roi_to_pool + 3) < std::numeric_limits<T>::min()) continue;
     // T roi_ymin = static_cast<T>(0);
     // T roi_xmin = static_cast<T>(0);
     // T roi_ymax = static_cast<T>(0);
