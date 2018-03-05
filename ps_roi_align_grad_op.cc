@@ -119,8 +119,9 @@ void atomic_float_add(volatile float* ptr, const float operand)
 //     int num_rois = 0;
 
 //     std::tie(batch_size, num_channals, map_height, map_width, num_rois) = dim_info;
+//     grad_output = grad_output.setZero();
 
-//     auto pooling_grad_routine = [&rois, &pooled_features_grad, &pooled_index, &grad_output, grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois](int64_t start, int64_t limit){
+//     auto pooling_grad_routine = [&l,&rois, &pooled_features_grad, &pooled_index, &grad_output, grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois](int64_t start, int64_t limit){
 //       const int32_t grid_size = grid_dim_width * grid_dim_height;
 //       const int32_t bank_size = num_channals / grid_size;
 //       for (int64_t worker_index = start; worker_index < limit; ++worker_index){
@@ -192,20 +193,10 @@ void atomic_float_add(volatile float* ptr, const float operand)
 //         float float_row_to_pool = row_to_pool - int_row_to_pool;
 
 //         const T grad_in = *pooled_features_start;
-
 //         atomic_float_add(grad_output_start + int_row_to_pool * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * (1. - float_row_to_pool) * grad_in));
 //         atomic_float_add(grad_output_start + std::min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * float_row_to_pool * grad_in));
 //         atomic_float_add(grad_output_start + int_row_to_pool * map_width + std::min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * (1. - float_row_to_pool) * grad_in));
 //         atomic_float_add(grad_output_start + std::min(int_row_to_pool + 1, map_height - 1) * map_width + std::min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * float_row_to_pool * grad_in));
-
-//         // grad_output_start[int_row_to_pool * map_width + int_col_to_pool] += static_cast<T>((1. - float_col_to_pool) * (1. - float_row_to_pool) * grad_in);
-
-//         // grad_output_start[std::min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool] += static_cast<T>((1. - float_col_to_pool) * float_row_to_pool * grad_in);
-
-//         // grad_output_start[int_row_to_pool * map_width + std::min(int_col_to_pool + 1, map_width - 1)] += static_cast<T>(float_col_to_pool * (1. - float_row_to_pool) * grad_in);
-
-//         // grad_output_start[std::min(int_row_to_pool + 1, map_height - 1) * map_width + std::min(int_col_to_pool + 1, map_width - 1)] += static_cast<T>(float_col_to_pool * float_row_to_pool * grad_in);
-
 //       }
 //     };
 
@@ -225,7 +216,6 @@ void atomic_float_add(volatile float* ptr, const float operand)
 template <typename T>
 struct PSROIAlignGradFunctor<CPUDevice, T> {
   void operator()(OpKernelContext* context, const CPUDevice& d, typename TTypes<T>::ConstFlat inputs, typename TTypes<T>::ConstFlat rois, const int32_t grid_dim_width, const int32_t grid_dim_height, typename TTypes<T>::ConstFlat pooled_features_grad, typename TTypes<int32_t>::ConstFlat pooled_index, typename TTypes<T>::Flat grad_output, KDimSize dim_info) {
-
     int batch_size = 0;
     int num_channals = 0;
     int map_height = 0;
