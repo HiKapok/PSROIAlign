@@ -38,13 +38,22 @@ LINK_DIRECTORIES(${TF_LIB})
 # approach 2
 CUDA_COMPILE(PSROI_ALIGN_CU_O ps_roi_align_op.cu MODULE OPTIONS -I$TF_INC -I/usr/local)
 CUDA_COMPILE(PSROI_ALIGN_GRAD_CU_O ps_roi_align_grad_op.cu MODULE OPTIONS -I$TF_INC -I/usr/local)
+CUDA_COMPILE(ROTATED_PSROI_ALIGN_CU_O rotated_ps_roi_align_op.cu MODULE OPTIONS -I$TF_INC -I/usr/local)
+CUDA_COMPILE(ROTATED_PSROI_ALIGN_GRAD_CU_O rotated_ps_roi_align_grad_op.cu MODULE OPTIONS -I$TF_INC -I/usr/local)
 
 ADD_LIBRARY(ps_roi_align SHARED
   ${PSROI_ALIGN_CU_O}
   ${PSROI_ALIGN_GRAD_CU_O}
+  ${ROTATED_PSROI_ALIGN_CU_O}
+  ${ROTATED_PSROI_ALIGN_GRAD_CU_O}
+  rotated_ps_roi_align_op.h
+  rotated_ps_roi_align_op.cc
+  rotated_ps_roi_align_grad_op.cc
   ps_roi_align_op.h
   ps_roi_align_op.cc
   ps_roi_align_grad_op.cc
+  common.h
+  common.cc
   )
 
 TARGET_LINK_LIBRARIES(ps_roi_align tensorflow_framework ${CUDA_LIBRARIES})
