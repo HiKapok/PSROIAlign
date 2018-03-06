@@ -37,7 +37,7 @@ using tensorflow::OpKernelContext;
 using CPUDevice = Eigen::ThreadPoolDevice;
 using GPUDevice = Eigen::GpuDevice;
 
-using KDimSize = std::tuple<int, int, int, int, int>;
+using KDimSize = std::tuple<int, int, int, int, int, bool>;
 
 template <typename Device, typename T>
 struct PSROIAlignFunctor {

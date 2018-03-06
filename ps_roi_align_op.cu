@@ -34,7 +34,7 @@ using namespace tensorflow;
 
 // Define the CUDA kernel.
 template <typename T>
-__global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, const T * rois, T * pooled_features, int32_t * pooled_index, const int32_t grid_dim_width, const int32_t grid_dim_height, const int batch_size, const int num_channals, const int map_height, const int map_width, const int num_rois) {
+__global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, const T * rois, T * pooled_features, int32_t * pooled_index, const int32_t grid_dim_width, const int32_t grid_dim_height, const int batch_size, const int num_channals, const int map_height, const int map_width, const int num_rois, const bool using_max_pool) {
 
   const int32_t grid_size = grid_dim_width * grid_dim_height;
   const int32_t bank_size = num_channals / grid_size;
@@ -97,7 +97,8 @@ __global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, 
     float pool_width_start = roi_xmin + pool_bin_width * col_index;
     float pool_height_start = roi_ymin + pool_bin_height * row_index;
     int32_t max_pool_ind = 0;
-    T max_elem = std::numeric_limits<T>::lowest();
+    //T max_elem = std::numeric_limits<T>::lowest();
+    T max_or_acc_elem = using_max_pool ? std::numeric_limits<T>::lowest() : static_cast<T>(0);
     for (int32_t h_ind = 0; h_ind < num_elem_height; ++h_ind) {
       for (int32_t w_ind = 0; w_ind < num_elem_width; ++w_ind) {
         float col_to_pool = pool_width_start + step_widht_each_bin * w_ind + step_widht_each_bin / 2.;
@@ -114,14 +115,19 @@ __global__ void PSROIAlignCudaKernel(CudaLaunchConfig config, const T * inputs, 
                                   (1. - float_col_to_pool) * float_row_to_pool * ldg(feature_map_to_pool + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool) +
                                   float_col_to_pool * (1. - float_row_to_pool) * ldg(feature_map_to_pool + int_row_to_pool * map_width + tf_min(int_col_to_pool + 1, map_width - 1)) +
                                   float_col_to_pool * float_row_to_pool * ldg(feature_map_to_pool + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + tf_min(int_col_to_pool + 1, map_width - 1)));
-        if(max_elem < temp_value){
-          max_elem = temp_value;
-          max_pool_ind = current_switch_ind;
+        if(using_max_pool){
+          if(max_or_acc_elem < temp_value){
+            max_or_acc_elem = temp_value;
+            max_pool_ind = current_switch_ind;
+          }
+        }else{
+          max_or_acc_elem += temp_value;
         }
       }
     }
-    *pooled_features_start = max_elem;
-    *pooled_index_start = max_pool_ind;
+    if(!using_max_pool) max_or_acc_elem /= static_cast<T>(num_elem_height * num_elem_width);
+    *pooled_features_start = max_or_acc_elem;
+    *pooled_index_start = using_max_pool ? max_pool_ind : static_cast<T>(0);
   }
 }
 
@@ -133,12 +139,13 @@ void PSROIAlignFunctor<GPUDevice, T>::operator()(OpKernelContext* context, const
     int map_height = 0;
     int map_width = 0;
     int num_rois = 0;
+    bool using_max_pool = false;
 
-    std::tie(batch_size, num_channals, map_height, map_width, num_rois) = dim_info;
+    std::tie(batch_size, num_channals, map_height, map_width, num_rois, using_max_pool) = dim_info;
 
     CudaLaunchConfig config = GetCudaLaunchConfig(batch_size * num_rois * num_channals, d);
     PSROIAlignCudaKernel <<<config.block_count,
-                        config.thread_per_block, 0, d.stream()>>> (config, inputs.data(), rois.data(), pooled_features.data(), pooled_index.data(), grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois);
+                        config.thread_per_block, 0, d.stream()>>> (config, inputs.data(), rois.data(), pooled_features.data(), pooled_index.data(), grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois, using_max_pool);
 
     cudaError_t err = cudaGetLastError();
     if(cudaSuccess != err)

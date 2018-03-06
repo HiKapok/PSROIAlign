@@ -39,6 +39,7 @@ REGISTER_OP("PsRoiAlign")
     .Attr("T: {float}")
     .Attr("grid_dim_width: int")
     .Attr("grid_dim_height: int")
+    .Attr("pool_method: string")
     .Input("inputs: T")
     .Input("rois: T")
     // .Input("grid_dim_width: int32")
@@ -86,10 +87,11 @@ struct PSROIAlignFunctor<CPUDevice, T> {
     int map_height = 0;
     int map_width = 0;
     int num_rois = 0;
+    bool using_max_pool = false;
 
-    std::tie(batch_size, num_channals, map_height, map_width, num_rois) = dim_info;
+    std::tie(batch_size, num_channals, map_height, map_width, num_rois, using_max_pool) = dim_info;
 
-    auto pooling_routine = [&inputs, &rois, &pooled_features, &pooled_index, grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois](int64_t start, int64_t limit){
+    auto pooling_routine = [&inputs, &rois, &pooled_features, &pooled_index, grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois, using_max_pool](int64_t start, int64_t limit){
       const int32_t grid_size = grid_dim_width * grid_dim_height;
       const int32_t bank_size = num_channals/grid_size;
       for (int64_t worker_index = start; worker_index < limit; ++worker_index){
@@ -155,7 +157,7 @@ struct PSROIAlignFunctor<CPUDevice, T> {
         float pool_width_start = roi_xmin + pool_bin_width * col_index;
         float pool_height_start = roi_ymin + pool_bin_height * row_index;
         int32_t max_pool_ind = 0;
-        T max_elem = std::numeric_limits<T>::lowest();
+        T max_or_acc_elem = using_max_pool ? std::numeric_limits<T>::lowest() : static_cast<T>(0);
         for (int32_t h_ind = 0; h_ind < num_elem_height; ++h_ind) {
           for (int32_t w_ind = 0; w_ind < num_elem_width; ++w_ind) {
             float col_to_pool = pool_width_start + step_width_each_bin * w_ind + step_width_each_bin / 2.;
@@ -172,15 +174,21 @@ struct PSROIAlignFunctor<CPUDevice, T> {
                                       (1. - float_col_to_pool) * float_row_to_pool * feature_map_to_pool[std::min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool] +
                                       float_col_to_pool * (1. - float_row_to_pool) * feature_map_to_pool[int_row_to_pool * map_width + std::min(int_col_to_pool + 1, map_width - 1)] +
                                       float_col_to_pool * float_row_to_pool * feature_map_to_pool[std::min(int_row_to_pool + 1, map_height - 1) * map_width + std::min(int_col_to_pool + 1, map_width - 1)]);
-            if(max_elem < temp_value){
-              max_elem = temp_value;
-              max_pool_ind = current_switch_ind;
+            if(using_max_pool){
+              if(max_or_acc_elem < temp_value){
+                max_or_acc_elem = temp_value;
+                max_pool_ind = current_switch_ind;
+              }
+            }else{
+              max_or_acc_elem += temp_value;
             }
           }
         }
 
-        *pooled_features_start = max_elem;
-        *pooled_index_start = max_pool_ind;
+        if(!using_max_pool) max_or_acc_elem /= static_cast<T>(num_elem_height * num_elem_width);
+
+        *pooled_features_start = max_or_acc_elem;
+        *pooled_index_start = using_max_pool ? max_pool_ind : static_cast<T>(0);
       }
     };
 
@@ -203,6 +211,10 @@ class PSROIAlignOp : public OpKernel {
 
     OP_REQUIRES_OK(context, context->GetAttr("grid_dim_height", &grid_dim_height_in));
     OP_REQUIRES(context, grid_dim_height_in >= 0, errors::InvalidArgument("Need Attr grid_dim_height >= 0, got ", grid_dim_height_in));
+
+    OP_REQUIRES_OK(context, context->GetAttr("pool_method", &pool_method));
+    OP_REQUIRES(context, StringPiece(pool_method).contains(StringPiece("mean")) || StringPiece(pool_method).contains(StringPiece("max")), errors::InvalidArgument("Need Attr pool_method to be either 'mean' or 'max', got ", pool_method));
+    // std::cout << (StringPiece(pool_method).contains(StringPiece("mean")) || StringPiece(pool_method).contains(StringPiece("max"))) << std::endl;
   }
 
   void Compute(OpKernelContext* context) override {
@@ -227,13 +239,14 @@ class PSROIAlignOp : public OpKernel {
     Tensor* pooled_index = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(1, {batch_size, num_rois, grid_size, bank_size}, &pooled_index));
 
-    PSROIAlignFunctor<Device, T>()(context, context->eigen_device<Device>(), inputs_in.template flat<T>(), rois_in.template flat<T>(), grid_dim_width_in, grid_dim_height_in, pooled_features->template flat<T>(), pooled_index->template flat<int32_t>(), std::make_tuple(batch_size, num_channals, map_height, map_width, num_rois));
+    PSROIAlignFunctor<Device, T>()(context, context->eigen_device<Device>(), inputs_in.template flat<T>(), rois_in.template flat<T>(), grid_dim_width_in, grid_dim_height_in, pooled_features->template flat<T>(), pooled_index->template flat<int32_t>(), std::make_tuple(batch_size, num_channals, map_height, map_width, num_rois, StringPiece(pool_method).contains(StringPiece("max"))));
     // PSROIPoolingFunctor<Device, T>()(context, context->eigen_device<Device>(), inputs_in.tensor<T, 4>(), rois_in.tensor<T, 3>(), grid_dim_buffer[0], pooled_features->tensor<T, 4>());
   }
 
 private:
   int32_t grid_dim_width_in{-1};
   int32_t grid_dim_height_in{-1};
+  std::string pool_method{"max"};
 };
 
 // Register the CPU kernels.

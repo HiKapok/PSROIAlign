@@ -34,7 +34,7 @@ using namespace tensorflow;
 
 // Define the CUDA kernel.
 template <typename T>
-__global__ void PSROIAlignGradCudaKernel(CudaLaunchConfig config, const T * inputs, const T * rois, const T * pooled_features_grad, const int32_t * pooled_index, T * grad_output, const int32_t grid_dim_width, const int32_t grid_dim_height, const int batch_size, const int num_channals, const int map_height, const int map_width, const int num_rois) {
+__global__ void PSROIAlignGradCudaKernel(CudaLaunchConfig config, const T * inputs, const T * rois, const T * pooled_features_grad, const int32_t * pooled_index, T * grad_output, const int32_t grid_dim_width, const int32_t grid_dim_height, const int batch_size, const int num_channals, const int map_height, const int map_width, const int num_rois, const bool using_max_pool) {
 
   const int32_t grid_size = grid_dim_width * grid_dim_height;
   const int32_t bank_size = num_channals / grid_size;
@@ -97,23 +97,43 @@ __global__ void PSROIAlignGradCudaKernel(CudaLaunchConfig config, const T * inpu
     float pool_width_start = roi_xmin + pool_bin_width * col_index;
     float pool_height_start = roi_ymin + pool_bin_height * row_index;
 
-    const int32_t h_ind = ldg(pooled_index_start) / num_elem_width;
-    const int32_t w_ind = ldg(pooled_index_start) % num_elem_width;
+    if(using_max_pool){
+        const int32_t h_ind = ldg(pooled_index_start) / num_elem_width;
+        const int32_t w_ind = ldg(pooled_index_start) % num_elem_width;
 
-    float col_to_pool = pool_width_start + step_width_each_bin * w_ind + step_width_each_bin / 2.;
-    float row_to_pool = pool_height_start + step_height_each_bin * h_ind + step_height_each_bin / 2.;
-    //std::cout << "col_to_pool: " << col_to_pool << " row_to_pool: " << row_to_pool << std::endl;
-    int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
-    int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
-    float float_col_to_pool = col_to_pool - int_col_to_pool;
-    float float_row_to_pool = row_to_pool - int_row_to_pool;
+        float col_to_pool = pool_width_start + step_width_each_bin * w_ind + step_width_each_bin / 2.;
+        float row_to_pool = pool_height_start + step_height_each_bin * h_ind + step_height_each_bin / 2.;
+        //std::cout << "col_to_pool: " << col_to_pool << " row_to_pool: " << row_to_pool << std::endl;
+        int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
+        int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
+        float float_col_to_pool = col_to_pool - int_col_to_pool;
+        float float_row_to_pool = row_to_pool - int_row_to_pool;
 
-    const T grad_in = ldg(pooled_features_start);
+        const T grad_in = ldg(pooled_features_start);
 
-    atomicAdd(grad_output_start + int_row_to_pool * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * (1. - float_row_to_pool) * grad_in));
-    atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * float_row_to_pool * grad_in));
-    atomicAdd(grad_output_start + int_row_to_pool * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * (1. - float_row_to_pool) * grad_in));
-    atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * float_row_to_pool * grad_in));
+        atomicAdd(grad_output_start + int_row_to_pool * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * (1. - float_row_to_pool) * grad_in));
+        atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * float_row_to_pool * grad_in));
+        atomicAdd(grad_output_start + int_row_to_pool * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * (1. - float_row_to_pool) * grad_in));
+        atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * float_row_to_pool * grad_in));
+    }else{
+        const T grad_in = ldg(pooled_features_start) / static_cast<T>(num_elem_width * num_elem_height);
+        for (int32_t h_ind = 0; h_ind < num_elem_height; ++h_ind) {
+          for (int32_t w_ind = 0; w_ind < num_elem_width; ++w_ind) {
+            float col_to_pool = pool_width_start + step_width_each_bin * w_ind + step_width_each_bin / 2.;
+            float row_to_pool = pool_height_start + step_height_each_bin * h_ind + step_height_each_bin / 2.;
+
+            int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
+            int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
+            float float_col_to_pool = col_to_pool - int_col_to_pool;
+            float float_row_to_pool = row_to_pool - int_row_to_pool;
+
+            atomicAdd(grad_output_start + int_row_to_pool * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * (1. - float_row_to_pool) * grad_in));
+            atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + int_col_to_pool, static_cast<T>((1. - float_col_to_pool) * float_row_to_pool * grad_in));
+            atomicAdd(grad_output_start + int_row_to_pool * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * (1. - float_row_to_pool) * grad_in));
+            atomicAdd(grad_output_start + tf_min(int_row_to_pool + 1, map_height - 1) * map_width + tf_min(int_col_to_pool + 1, map_width - 1), static_cast<T>(float_col_to_pool * float_row_to_pool * grad_in));
+          }
+        }
+    }
   }
 }
 
@@ -125,15 +145,16 @@ void PSROIAlignGradFunctor<GPUDevice, T>::operator()(OpKernelContext* context, c
     int map_height = 0;
     int map_width = 0;
     int num_rois = 0;
+    bool using_max_pool = false;
 
-    std::tie(batch_size, num_channals, map_height, map_width, num_rois) = dim_info;
+    std::tie(batch_size, num_channals, map_height, map_width, num_rois, using_max_pool) = dim_info;
 
     CudaLaunchConfig config = GetCudaLaunchConfig(batch_size * num_rois * num_channals, d);
     //grad_output = grad_output.setZero();
     SetZero <<<config.block_count, config.thread_per_block, 0, d.stream()>>> (batch_size * map_height * map_width * num_channals, grad_output.data());
 
     PSROIAlignGradCudaKernel <<<config.block_count,
-                        config.thread_per_block, 0, d.stream()>>> (config, inputs.data(), rois.data(), pooled_features_grad.data(), pooled_index.data(), grad_output.data(), grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois);
+                        config.thread_per_block, 0, d.stream()>>> (config, inputs.data(), rois.data(), pooled_features_grad.data(), pooled_index.data(), grad_output.data(), grid_dim_width, grid_dim_height, batch_size, num_channals, map_height, map_width, num_rois, using_max_pool);
 
     cudaError_t err = cudaGetLastError();
     if(cudaSuccess != err)
