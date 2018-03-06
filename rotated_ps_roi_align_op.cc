@@ -258,8 +258,8 @@ struct RotatedPSROIAlignFunctor<CPUDevice, T> {
         for(int32_t pool_h = 0; pool_h < num_elem_height; ++pool_h){
           for(int32_t pool_w = 0; pool_w < num_elem_width; ++pool_w){
             //std::cout << "col_to_pool: " << col_to_pool << " row_to_pool: " << row_to_pool << std::endl;
-            T col_to_pool = (left_top_x + pool_w * grid_x_step_top + left_bottom_x + pool_w * grid_x_step_bottom) / 2.;
-            T row_to_pool = (left_top_y + pool_h * grid_y_step_left + right_top_y + pool_h * grid_y_step_right) / 2.;
+            T col_to_pool = (left_top_x + (pool_w + 1.) * grid_x_step_top + left_bottom_x + (pool_w + 1.) * grid_x_step_bottom) / 2.;
+            T row_to_pool = (left_top_y + (pool_h + 1.) * grid_y_step_left + right_top_y + (pool_h + 1.) * grid_y_step_right) / 2.;
 
             int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
             int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
@@ -297,42 +297,6 @@ struct RotatedPSROIAlignFunctor<CPUDevice, T> {
           pooled_features.size(), shard_cost, pooling_routine);
   }
 };
-
-
-// T roi_y0_order = (order == 0) ? roi_y0 : roi_y1;
-//         T roi_x0_order = (order == 0) ? roi_x0 : roi_x1;
-//         T roi_y1_order = (order == 0) ? roi_y1 : roi_y2;
-//         T roi_x1_order = (order == 0) ? roi_x1 : roi_x2;
-//         T roi_y2_order = (order == 0) ? roi_y2 : roi_y3;
-//         T roi_x2_order = (order == 0) ? roi_x2 : roi_x3;
-//         T roi_y3_order = (order == 0) ? roi_y3 : roi_y0;
-//         T roi_x3_order = (order == 0) ? roi_x3 : roi_x0;
-
-//         T y_step_left = (roi_y3_order - roi_y0_order)/(grid_dim_height * 1.);
-//         T y_step_right = (roi_y2_order - roi_y1_order)/(grid_dim_height * 1.);
-//         T x_step_top = (roi_x1_order - roi_x0_order)/(grid_dim_width * 1.);
-//         T x_step_bottom = (roi_x2_order - roi_x3_order)/(grid_dim_width * 1.);
-//         for (int32_t h_ind = 0; h_ind < grid_dim_height; ++h_ind) {
-//           T left_y1 = (roi_y0_order + h_ind * y_step_left);
-//           T right_y1 = (roi_y1_order + h_ind * y_step_right);
-//           T left_y2 = (roi_y0_order + (h_ind + 1.) * y_step_left);
-//           T right_y2 = (roi_y1_order + (h_ind + 1.) * y_step_right);
-//           for (int32_t w_ind = 0; w_ind < grid_dim_width; ++w_ind) {
-//             T left_top_y = left_y1 + w_ind * (right_y1 - left_y1)/(grid_dim_width);
-//             T right_top_y = left_y1 + (w_ind + 1.) * (right_y1 - left_y1)/(grid_dim_width);
-//             T left_bottom_y = left_y2 + w_ind * (right_y2 - left_y2)/(grid_dim_width);
-//             T right_bottom_y = left_y2 + (w_ind + 1.) * (right_y2 - left_y2)/(grid_dim_width);
-
-//             T top_x1 = (roi_x0_order + w_ind * x_step_top);
-//             T bottom_x1 = (roi_x3_order + w_ind * x_step_bottom);
-//             T top_x2 = (roi_x0_order + (w_ind + 1.) * x_step_top);
-//             T bottom_x2 = (roi_x3_order + (w_ind + 1.) * x_step_bottom);
-
-//             T left_top_x = top_x1 + h_ind * (bottom_x1 - top_x1)/(grid_dim_height);
-//             T left_bottom_x = top_x1 + (h_ind + 1.) * (bottom_x1 - top_x1)/(grid_dim_height);
-//             T right_top_x = top_x2 + h_ind * (bottom_x2 - top_x2)/(grid_dim_height);
-//             T right_bottom_x = top_x2 + (h_ind + 1.) * (bottom_x2 - top_x2)/(grid_dim_height);
-
 
 // OpKernel definition.
 // template parameter <T> is the datatype of the tensors.

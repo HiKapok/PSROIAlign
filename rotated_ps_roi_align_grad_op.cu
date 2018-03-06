@@ -131,8 +131,8 @@ __global__ void RotatedPSROIAlignGradCudaKernel(CudaLaunchConfig config, const T
         const int32_t pool_h = ldg(pooled_index_start) / num_elem_width;
         const int32_t pool_w = ldg(pooled_index_start) % num_elem_width;
 
-        T col_to_pool = (left_top_x + pool_w * grid_x_step_top + left_bottom_x + pool_w * grid_x_step_bottom) / 2.;
-        T row_to_pool = (left_top_y + pool_h * grid_y_step_left + right_top_y + pool_h * grid_y_step_right) / 2.;
+        T col_to_pool = (left_top_x + (pool_w + 1.) * grid_x_step_top + left_bottom_x + (pool_w + 1.) * grid_x_step_bottom) / 2.;
+        T row_to_pool = (left_top_y + (pool_h + 1.) * grid_y_step_left + right_top_y + (pool_h + 1.) * grid_y_step_right) / 2.;
 
         int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
         int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
@@ -149,8 +149,8 @@ __global__ void RotatedPSROIAlignGradCudaKernel(CudaLaunchConfig config, const T
         const T grad_in = ldg(pooled_features_start) / static_cast<T>(num_elem_width * num_elem_height);
         for(int32_t pool_h = 0; pool_h < num_elem_height; ++pool_h){
           for(int32_t pool_w = 0; pool_w < num_elem_width; ++pool_w){
-            T col_to_pool = (left_top_x + pool_w * grid_x_step_top + left_bottom_x + pool_w * grid_x_step_bottom) / 2.;
-            T row_to_pool = (left_top_y + pool_h * grid_y_step_left + right_top_y + pool_h * grid_y_step_right) / 2.;
+            T col_to_pool = (left_top_x + (pool_w + 1.) * grid_x_step_top + left_bottom_x + (pool_w + 1.) * grid_x_step_bottom) / 2.;
+            T row_to_pool = (left_top_y + (pool_h + 1.) * grid_y_step_left + right_top_y + (pool_h + 1.) * grid_y_step_right) / 2.;
 
             int32_t int_col_to_pool = static_cast<int32_t>(col_to_pool);
             int32_t int_row_to_pool = static_cast<int32_t>(row_to_pool);
