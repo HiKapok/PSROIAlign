@@ -58,14 +58,17 @@ __global__ void RotatedPSROIAlignCudaKernel(CudaLaunchConfig config, const T * i
     T * pooled_features_start = pooled_features + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
     int32_t * pooled_index_start = pooled_index + image_index * (num_rois * num_channals) + roi_index * num_channals + (position_index % grid_size) * bank_size + channal_pos_remainder;
 
-    T roi_y0 = static_cast<T>(ldg(roi_to_pool) * map_height);
-    T roi_x0 = static_cast<T>(ldg(roi_to_pool + 1) * map_width);
-    T roi_y1 = static_cast<T>(ldg(roi_to_pool + 2) * map_height);
-    T roi_x1 = static_cast<T>(ldg(roi_to_pool + 3) * map_width);
-    T roi_y2 = static_cast<T>(ldg(roi_to_pool + 4) * map_height);
-    T roi_x2 = static_cast<T>(ldg(roi_to_pool + 5) * map_width);
-    T roi_y3 = static_cast<T>(ldg(roi_to_pool + 6) * map_height);
-    T roi_x3 = static_cast<T>(ldg(roi_to_pool + 7) * map_width);
+    int32_t order = ldg(roi_order) < 0 ? 0 : ldg(roi_order) * 2;
+
+    T roi_y0 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_height);
+    T roi_x0 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_width);
+    T roi_y1 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_height);
+    T roi_x1 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_width);
+    T roi_y2 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_height);
+    T roi_x2 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_width);
+    T roi_y3 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_height);
+    T roi_x3 = static_cast<T>(ldg(roi_to_pool + (order++) % 8) * map_width);
+
 
     double len0 = static_cast<double>((roi_y1 - roi_y0) * (roi_y1 - roi_y0) + (roi_x1 - roi_x0) * (roi_x1 - roi_x0));
     double len1 = static_cast<double>((roi_y2 - roi_y1) * (roi_y2 - roi_y1) + (roi_x2 - roi_x1) * (roi_x2 - roi_x1));
@@ -74,7 +77,7 @@ __global__ void RotatedPSROIAlignCudaKernel(CudaLaunchConfig config, const T * i
     double cross_len0 = static_cast<double>((roi_y0 - roi_y2) * (roi_y0 - roi_y2) + (roi_x0 - roi_x2) * (roi_x0 - roi_x2));
     double cross_len1 = static_cast<double>((roi_y3 - roi_y1) * (roi_y3 - roi_y1) + (roi_x3 - roi_x1) * (roi_x3 - roi_x1));
 
-    int32_t order = ldg(roi_order) < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : ldg(roi_order);
+    order = ldg(roi_order) < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : 0;
     // fix ROI
     if(len0 < std::numeric_limits<T>::min() || len1 < std::numeric_limits<T>::min() || len2 < std::numeric_limits<T>::min() || len3 < std::numeric_limits<T>::min()){
     // not check convex for faster speed

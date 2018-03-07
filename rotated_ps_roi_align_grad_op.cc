@@ -95,14 +95,16 @@ REGISTER_OP("RotatedPsRoiAlignGrad")
 //         const T * pooled_features_start = pooled_features_grad.data() + worker_index;
 //         const int32_t * pooled_index_start = pooled_index.data() + worker_index;
 
-//         T roi_y0 = static_cast<T>(roi_to_pool[0] * map_height);
-//         T roi_x0 = static_cast<T>(roi_to_pool[1] * map_width);
-//         T roi_y1 = static_cast<T>(roi_to_pool[2] * map_height);
-//         T roi_x1 = static_cast<T>(roi_to_pool[3] * map_width);
-//         T roi_y2 = static_cast<T>(roi_to_pool[4] * map_height);
-//         T roi_x2 = static_cast<T>(roi_to_pool[5] * map_width);
-//         T roi_y3 = static_cast<T>(roi_to_pool[6] * map_height);
-//         T roi_x3 = static_cast<T>(roi_to_pool[7] * map_width);
+//         int32_t order = *roi_order < 0 ? 0 : *roi_order * 2;
+
+//         T roi_y0 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+//         T roi_x0 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+//         T roi_y1 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+//         T roi_x1 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+//         T roi_y2 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+//         T roi_x2 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+//         T roi_y3 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+//         T roi_x3 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
 
 //         double len0 = static_cast<double>((roi_y1 - roi_y0) * (roi_y1 - roi_y0) + (roi_x1 - roi_x0) * (roi_x1 - roi_x0));
 //         double len1 = static_cast<double>((roi_y2 - roi_y1) * (roi_y2 - roi_y1) + (roi_x2 - roi_x1) * (roi_x2 - roi_x1));
@@ -111,7 +113,7 @@ REGISTER_OP("RotatedPsRoiAlignGrad")
 //         double cross_len0 = static_cast<double>((roi_y0 - roi_y2) * (roi_y0 - roi_y2) + (roi_x0 - roi_x2) * (roi_x0 - roi_x2));
 //         double cross_len1 = static_cast<double>((roi_y3 - roi_y1) * (roi_y3 - roi_y1) + (roi_x3 - roi_x1) * (roi_x3 - roi_x1));
 
-//         int32_t order = *roi_order < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : *roi_order;
+//         order = *roi_order < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : 0;
 //         // fix ROI
 //         if(len0 < std::numeric_limits<T>::min() || len1 < std::numeric_limits<T>::min() || len2 < std::numeric_limits<T>::min() || len3 < std::numeric_limits<T>::min()){
 //         // not check convex for faster speed
@@ -251,14 +253,16 @@ struct RotatedPSROIAlignGradFunctor<CPUDevice, T> {
           const int32_t row_index = (cur_channal_index / bank_size) / grid_dim_width;
           const int32_t col_index = (cur_channal_index / bank_size) % grid_dim_width;
 
-          T roi_y0 = static_cast<T>(roi_to_pool[0] * map_height);
-          T roi_x0 = static_cast<T>(roi_to_pool[1] * map_width);
-          T roi_y1 = static_cast<T>(roi_to_pool[2] * map_height);
-          T roi_x1 = static_cast<T>(roi_to_pool[3] * map_width);
-          T roi_y2 = static_cast<T>(roi_to_pool[4] * map_height);
-          T roi_x2 = static_cast<T>(roi_to_pool[5] * map_width);
-          T roi_y3 = static_cast<T>(roi_to_pool[6] * map_height);
-          T roi_x3 = static_cast<T>(roi_to_pool[7] * map_width);
+          int32_t order = *roi_order < 0 ? 0 : *roi_order * 2;
+
+          T roi_y0 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+          T roi_x0 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+          T roi_y1 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+          T roi_x1 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+          T roi_y2 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+          T roi_x2 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
+          T roi_y3 = static_cast<T>(roi_to_pool[(order++) % 8] * map_height);
+          T roi_x3 = static_cast<T>(roi_to_pool[(order++) % 8] * map_width);
 
           double len0 = static_cast<double>((roi_y1 - roi_y0) * (roi_y1 - roi_y0) + (roi_x1 - roi_x0) * (roi_x1 - roi_x0));
           double len1 = static_cast<double>((roi_y2 - roi_y1) * (roi_y2 - roi_y1) + (roi_x2 - roi_x1) * (roi_x2 - roi_x1));
@@ -267,7 +271,7 @@ struct RotatedPSROIAlignGradFunctor<CPUDevice, T> {
           double cross_len0 = static_cast<double>((roi_y0 - roi_y2) * (roi_y0 - roi_y2) + (roi_x0 - roi_x2) * (roi_x0 - roi_x2));
           double cross_len1 = static_cast<double>((roi_y3 - roi_y1) * (roi_y3 - roi_y1) + (roi_x3 - roi_x1) * (roi_x3 - roi_x1));
 
-          int32_t order = *roi_order < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : *roi_order;
+          order = *roi_order < 0 ? (len0 + len2 > len1 + len3 ? 1 : 0) : 0;
           // fix ROI
           if(len0 < std::numeric_limits<T>::min() || len1 < std::numeric_limits<T>::min() || len2 < std::numeric_limits<T>::min() || len3 < std::numeric_limits<T>::min()){
           // not check convex for faster speed

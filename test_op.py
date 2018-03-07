@@ -71,7 +71,7 @@ map_to_pool = [[
               [[1., 2., 3., 4., 5.], [6., 7., 8., 9., 10.], [11., 12., 13., 14., 15.], [16., 17., 18., 19., 20.], [21., 22., 23., 24., 25.]]
             ]]
 
-pool_method = 'mean'
+pool_method = 'max'
 
 class PSROIAlignTest(tf.test.TestCase):
   def testPSROIAlign(self):
@@ -135,13 +135,13 @@ class RotatedPSROIAlignTest(tf.test.TestCase):
     with tf.device('/gpu:1'):
       # map C++ operators to python objects
       rotated_ps_roi_align = op_module.rotated_ps_roi_align
-      result = rotated_ps_roi_align(map_to_pool, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 0]], 2, 2, pool_method)
+      result = rotated_ps_roi_align(map_to_pool, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 3]], 2, 2, pool_method)
       with self.test_session() as sess:
         print('rotated_ps_roi_align in gpu:', sess.run(result))
     with tf.device('/cpu:0'):
       # map C++ operators to python objects
       rotated_ps_roi_align = op_module.rotated_ps_roi_align
-      result = rotated_ps_roi_align(map_to_pool, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 0]], 2, 2, pool_method)
+      result = rotated_ps_roi_align(map_to_pool, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 3]], 2, 2, pool_method)
       with self.test_session() as sess:
         print('rotated_ps_roi_align in cpu:', sess.run(result))
         # expect [3.18034267  0.39960092  0.00709875  2.96500921]
@@ -166,7 +166,7 @@ class RotatedPSROIAlignGradTest(tf.test.TestCase):
     with tf.device('/cpu:0'):
       rotated_ps_roi_align = op_module.rotated_ps_roi_align
       inputs_features = tf.constant(map_to_pool, dtype=tf.float32)
-      pool_result = rotated_ps_roi_align(inputs_features, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 0]], 2, 2, pool_method)
+      pool_result = rotated_ps_roi_align(inputs_features, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 3]], 2, 2, pool_method)
       with tf.Session() as sess:
         #print(sess.run(tf.gradients(pool_result[0], [inputs_features])))
         print(tf.test.compute_gradient_error(inputs_features, [1, 16, 5, 5], pool_result[0], [1, 3, 4, 4], delta=0.0001, x_init_value=np.array(map_to_pool)))
@@ -178,7 +178,7 @@ class RotatedPSROIAlignGradTest(tf.test.TestCase):
     with tf.device('/gpu:0'):
       rotated_ps_roi_align = op_module.rotated_ps_roi_align
       inputs_features = tf.constant(map_to_pool, dtype=tf.float32)
-      pool_result = rotated_ps_roi_align(inputs_features, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 0]], 2, 2, pool_method)
+      pool_result = rotated_ps_roi_align(inputs_features, [[[0.1, 0.1, 0.2, 0.3, 0.5, 0.5, 0.3, 0.2], [0.5, 0.5, 0.6, 0.7, 0.9, 0.9, 0.7, 0.6], [0.6, 0.7, 0.9, 0.9, 0.7, 0.6, 0.2, 0.2]]], [[1, -1, 3]], 2, 2, pool_method)
       with tf.Session() as sess:
         #print(sess.run(tf.gradients(pool_result[0], [inputs_features])))
         print(tf.test.compute_gradient_error(inputs_features, [1, 16, 5, 5], pool_result[0], [1, 3, 4, 4], delta=0.0001, x_init_value=np.array(map_to_pool)))

@@ -19,7 +19,7 @@ Update:
 - Added support for mean pooling (default is max pooling)
 - PsRoIAlign now support oriented RoI inputs (for both max and mean pooling).
 
-Futher Work:
+Future Work:
 
 - Check if there is need to ensure the convex of polygon
 - Improve performance
