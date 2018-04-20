@@ -12,7 +12,7 @@ mkdir build
 cd build && cmake ..
 make
 ```
-The code is tested under Tensorflow 1.7 with CUDA 8.0 using Ubuntu 16.04. This PsRoIAlign Op had been used to train Xception based [Light-Head RCNN](https://arxiv.org/abs/1711.07264) successfully with performance at 70%+mAP on PASCAL VOC 2007 Test dataset, you can see codes [here](https://github.com/HiKapok/X-Detector). 
+The code is tested under TensorFlow 1.6 with CUDA 8.0 using Ubuntu 16.04. This PsRoIAlign Op had been used to train Xception based [Light-Head RCNN](https://arxiv.org/abs/1711.07264) successfully with performance at ~75%mAP on PASCAL VOC 2007 Test dataset, you can see codes [here](https://github.com/HiKapok/X-Detector). 
 
 Update:
 
